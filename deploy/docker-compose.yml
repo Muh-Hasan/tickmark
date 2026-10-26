@@ -1,0 +1,53 @@
+name: tickmark
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: tickmark
+      POSTGRES_PASSWORD: tickmark
+      POSTGRES_DB: tickmark
+    ports: ["${TICKMARK_PG_PORT:-5434}:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tickmark -d tickmark"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:v1.31.5
+    ports:
+      - "${TICKMARK_MAILPIT_UI_PORT:-8026}:8025"
+      - "${TICKMARK_MAILPIT_SMTP_PORT:-1026}:1025"
+
+  chaos:
+    image: python:3.12-alpine
+    command: ["python", "/app/chaos.py"]
+    volumes:
+      - ./chaos/chaos.py:/app/chaos.py:ro
+
+  litellm:
+    image: ghcr.io/berriai/litellm:v1.105.5
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      LITELLM_MASTER_KEY: ${TICKMARK_GATEWAY_KEY:-sk-tickmark-dev}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    ports: ["${TICKMARK_GATEWAY_PORT:-4001}:4000"]
+    volumes:
+      - ./litellm/${TICKMARK_GATEWAY_CONFIG:-dev}.yaml:/app/config.yaml:ro
+      - ./litellm/ledger_callback.py:/app/ledger_callback.py:ro
+      - ../ledger:/ledger
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    depends_on: [chaos]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:
