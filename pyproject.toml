@@ -1,0 +1,45 @@
+[project]
+name = "tickmark"
+version = "0.1.0"
+description = "An AI bookkeeper for small businesses that never moves money or sends email without your approval."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "langchain-openai>=1.7.2",
+    "openai>=3.37.0",
+    "pydantic>=2.14.1",
+    "pydantic-settings>=2.16.1",
+    "rich>=15.0.0",
+    "typer>=0.27.3",
+]
+
+[project.scripts]
+tickmark = "tickmark.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tickmark"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -m 'not integration'"
+markers = ["integration: needs the docker compose services and Ollama running"]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "ruff>=0.17.2",
+]
